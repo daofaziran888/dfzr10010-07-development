@@ -65,6 +65,7 @@ npm run dev
 | 治理任务调度 | `schedule` | 治理任务 | 任务编号、任务类型、调度表达式 |
 | 表统计信息 | `stats` | 统计报告 | 报告编号、表名称、行总数 |
 | 数据迁移管理 | `migrate` | 迁移任务 | 任务编号、源表名、目标表名 |
+| 影响传播 | `impact` | 影响结果 | 操作批次、下游表清单、字段路径 |
 
 ## 约定
 
@@ -72,6 +73,22 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 影响传播与影响复核
+
+- `GET /api/impact/batches`：可选操作批次及影响概览。
+- `GET /api/impact/records/{batch}`：读取批次影响结果；未发布时返回预览（不落库）。
+- `GET /api/impact/records/{batch}/tables`：`keyword` 按表名检索、`field` 按字段定位、
+  `sort=depth|name` 排序、`page/size` 分页。
+- `GET /api/impact/records/{batch}/paths`：完整字段级路径，支持按表与字段筛选。
+- `POST /api/impact/records/{batch}/publish`：按批次发布，一个批次只保留一份结果。
+- `POST /api/impact/records/{batch}/actions`：确认复核 / 退回复核。
+- `POST /api/rollback/{id}/impact`：回滚清单复用同一批下游表清单，保存受影响表与操作批次。
+- `POST /api/migrate/{id}/impact`：消费下游表清单后把版本依据同步到影响复核工作台。
+
+计算规则：上游或下游缺一侧、字段映射缺失或不可解析的血缘记录不参与传播（不猜边）；
+同一批次内迁移记录与回滚记录对下游版本冲突时，按事件时间采用较新的表链，另一条表链整体排除，
+保证待复核页只发布一份无重复路径的结果。
 
 领域：数据工程
 子方向：数仓与数据湖

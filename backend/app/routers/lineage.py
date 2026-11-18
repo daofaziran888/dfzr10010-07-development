@@ -18,15 +18,18 @@ STATUSES = ["已记录", "已关联", "已过期", "已清理"]
 
 @router.get("", response_model=PageResult[dict])
 def list_entries(
-    keyword: str | None = Query(default=None, description="按记录编号检索"),
+    keyword: str | None = Query(default=None, description="按记录编号、上游表名或下游表名检索"),
     status: str | None = Query(default=None, description="已记录、已关联、已过期、已清理"),
+    batch: str | None = Query(default=None, description="按操作批次筛选"),
     page: int = 1,
     size: int = 20,
 ) -> PageResult[dict]:
-    """按记录编号与状态过滤湖仓血缘追踪列表；没有数据时返回空页，不报错。"""
+    """按记录编号、表名、状态与操作批次过滤湖仓血缘追踪列表；没有数据时返回空页，不报错。"""
     if size > 200:
         raise HTTPException(status_code=400, detail="每页最多 200 条，请缩小分页范围")
-    items, total = service.list_entries(keyword=keyword, status=status, page=page, size=size)
+    items, total = service.list_entries(
+        keyword=keyword, status=status, batch=batch, page=page, size=size
+    )
     return PageResult(items=items, total=total, page=page, size=size)
 
 

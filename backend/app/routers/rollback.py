@@ -18,15 +18,18 @@ STATUSES = ["待回滚", "回滚中", "已回滚", "已恢复"]
 
 @router.get("", response_model=PageResult[dict])
 def list_entries(
-    keyword: str | None = Query(default=None, description="按记录编号检索"),
+    keyword: str | None = Query(default=None, description="按记录编号或表名称检索"),
     status: str | None = Query(default=None, description="待回滚、回滚中、已回滚、已恢复"),
+    batch: str | None = Query(default=None, description="按操作批次筛选"),
     page: int = 1,
     size: int = 20,
 ) -> PageResult[dict]:
-    """按记录编号与状态过滤数据回滚恢复列表；没有数据时返回空页，不报错。"""
+    """按记录编号、表名称、状态与操作批次过滤数据回滚恢复列表；没有数据时返回空页，不报错。"""
     if size > 200:
         raise HTTPException(status_code=400, detail="每页最多 200 条，请缩小分页范围")
-    items, total = service.list_entries(keyword=keyword, status=status, page=page, size=size)
+    items, total = service.list_entries(
+        keyword=keyword, status=status, batch=batch, page=page, size=size
+    )
     return PageResult(items=items, total=total, page=page, size=size)
 
 
@@ -56,6 +59,16 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     if entry is None:
         return ActionResult(ok=False, message=message)
     return ActionResult(ok=True, message=message, entry=entry)
+
+
+@router.post("/{entry_id}/impact", response_model=ActionResult)
+def bind_impact(entry_id: int, payload: EntryPayload) -> ActionResult:
+    """回滚清单使用同一批下游表清单，并保存受影响表与操作批次。"""
+    batch = str(payload.values.get("batch") or "").strip() or None
+    result, entry, message = service.bind_impact(entry_id, batch)
+    if entry is None:
+        return ActionResult(ok=False, message=message)
+    return ActionResult(ok=True, message=message, entry={"回滚记录": entry, "影响结果": result})
 
 
 @router.get("/export")
